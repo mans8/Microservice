@@ -799,26 +799,3 @@ root@ubuntu_base:~# lvextend -l +100%FREE /dev/ubuntu-vg/ubuntu-lv
 
 刷新LV：`resize2fs /dev/ubuntu-vg/ubuntu-lv`
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-spring-boot常用配置
-
-https://docs.spring.io/spring-boot/docs/2.1.6.RELEASE/reference/html/using-boot-build-systems.html
