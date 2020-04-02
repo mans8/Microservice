@@ -159,6 +159,24 @@ Use An Enrire Disk And Set Up LVM（选LVM未来硬盘才能扩容）
 
 分配磁盘空间要全部用完
 
+**固定IP地址：**
+
+```yml
+
+vi /etc/netplan/50-cloud-init.yaml
+
+network:
+    ethernets:
+        ens33:
+          addresses: [192.168.1.20/24]
+          gateway: 192.168.1.2
+          nameserver:
+            addresses: [192.168.1.2]
+    version: 2
+    
+netplan apply
+```
+
 
 
 ## 9.Linux远程管理
