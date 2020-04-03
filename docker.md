@@ -312,7 +312,9 @@ Compose  项目由 Python 编写，实现上调用了 Docker 服务提供的 API
 
 ```shell
 #安装并为安装脚本添加执行权限
-sudo curl -L https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+sudo curl -L https://github.com/docker/compose/releases/download/1.25.4/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+
+sudo curl -L https://github.com/docker/compose/releases/download/1.23.2/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
 #查看安装是否成功
 docker-compose -v
@@ -336,6 +338,39 @@ services:
         container_name: web
         ports:
           - 8080:8080
+        volumes:
+          - ./webapps:/usr/local/tomcat/webapps  #数据卷路径映射，左宿主右容器，停掉后数据不会丢失
+        environment:
+            TZ: Asia/Shanghai #时区
+
+vi /usr/local/docker/mysql/docker-compose.yml
+version: ’3.1’
+services:
+  mysql: #这个名字随便起，但在同一个compose里不能重名
+    image: mysql:5.7.22
+    restart: always
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: 123456
+    command:
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_general_ci
+      --explicit_defaults_for_timestamp=true
+      --lower_case_table_names=1
+      --max_allowed_packet=128M
+    container_name: mysql
+    ports:
+      - 3306:3306
+    volume:
+      - ./data:/var/lib/mysql
+#MySQL的Web客户端
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8081:8080
+
 
 #启动
 docker-compose up
@@ -345,9 +380,99 @@ docker-compose down
 docker-compose logs web
 ```
 
+### 7.4 DockerCompose部署Gitlab
+
+​		Gitlab是利用Ruby on Rails一个开源的版本管理系统，拥有与Github类似的功能。
+
+```yml
+#在https://hub.docker.com/r/twang2218/gitlab-ce-zh中找gitlab找到汉化的中文版
+docker pull twang2218/gitlab-ce-zh（中文版）
+docker pull gitlab/gitlab-ce（英文版）
+
+#如果想简单的运行一下看看，可以执行这个命令：
+docker run -d -p 3000:80 twang2218/gitlab-ce-zh:11.1.4
+#可以将 11.1.4 换成你所需要的版本标签。
+
+vi /usr/local/docker/gitlab/docker-compose.yml
+version: '2'
+services:
+  gitlab:
+    image: 'twang2218/gitlab-ce-zh:11.1.4'
+    restart: unless-stopped
+    hostname: 'http://192.168.0.12'#改成部署gitlab
+    environment:
+      TZ: 'Asia/Shanghai'
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://192.168.0.12'
+        gitlab_rails['time_zone'] = 'Asia/Shanghai'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2222
+        unicorn['port'] = 8888
+        nginx['listen_port'] = 80
+        # 需要配置到 gitlab.rb 中的配置可以在这里配置，每个配置一行，注意缩进。
+        # 比如下面的电子邮件的配置：
+        # gitlab_rails['smtp_enable'] = true
+        # gitlab_rails['smtp_address'] = "smtp.exmail.qq.com"
+        # gitlab_rails['smtp_port'] = 465
+        # gitlab_rails['smtp_user_name'] = "xxxx@xx.com"
+        # gitlab_rails['smtp_password'] = "password"
+        # gitlab_rails['smtp_authentication'] = "login"
+        # gitlab_rails['smtp_enable_starttls_auto'] = true
+        # gitlab_rails['smtp_tls'] = true
+        # gitlab_rails['gitlab_email_from'] = 'xxxx@xx.com'
+    ports:
+      - '80:80'
+      - '443:443'
+      - '2222:22'
+    volumes:
+      - config:/etc/gitlab
+      - data:/var/opt/gitlab
+      - logs:/var/log/gitlab
+volumes:
+  config:
+  data:
+  logs:
+
+#启动
+docker-compose up
+
+```
 
 
 
+### 7.5 YML语言
+
+YAML语言是一种通用的数据串行化格式，**基本规则：**
+
+1. 1.大小写敏感
+2. 2.使用锁紧表示层级关系
+3. 3.缩进时不允许使用tab，用空格
+4. 4.缩进空格数目不重要，只要相同层级的元素左侧对齐即可
+
+\#表示注释，从这个字符一直到行尾，都会被解析器忽略
 
 
+
+**YAML支持的数据有三种：**
+
+- 对象：键值对的集合，又称为映射、哈希、字典
+
+   - animal:pets
+
+- 数组：一组按次序排列的值，又称为序列（sequence）/列表（list）
+
+   - -cat
+
+   - -dog
+
+   - -pig
+
+- 纯量（scalars）：单个的，不可再分的值
+   - 字符串、布尔、整数、浮点数、null、时间、日期
+
+**为什么用yaml不用json来做配置语言？（专人做专事）**
+
+- 缺乏注释
+-  json规范过于严 格，这也是为什么时间json解析器这么简单（格式严格，解析器简单）
+- 低信噪比（噪是干扰项），很多标点符号对阅读无帮助性，还要有大括号
+- json不支持多行字符串，换行要用“\n”
 
