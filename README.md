@@ -284,6 +284,58 @@ netplan apply
 
 
 
+### 11.3 Linux固定IP
+
+```yaml
+#以Ubuntu18.04为例
+#修改netplan下点yml文件
+cd /etc/netplan
+
+#加入网卡配置
+# Let NetworkManager manage all devices on this system
+network:
+  version: 2
+  # renderer: NetworkManager
+  ethernets:
+          ens33:
+                  addresses: [192.168.0.111/24]
+                  gateway4: 192.168.0.1
+                  nameservers:
+                        addresses: [192.168.0.1]
+
+netplan apply
+```
+
+
+
+### 11.4 修改hostname
+
+```
+hostnamectl set-hostname newNameHere
+```
+
+
+
+### 11.5 修改host文件
+
+```shell
+#Linux
+vi /etc/hosts
+
+#Windows
+hosts文件位置：C:\windows\system32\drivers\etc
+ipconfig /flushdns     #清除DNS缓存内容。
+```
+
+### 11.6 安装openssh
+
+```
+sudo apt-get install openssl
+sudo apt-get install libssl-dev
+```
+
+
+
 ## 12.vim编辑器
 
 **运行模式：**
@@ -602,7 +654,7 @@ apt-get update
 
 进入数据库：`use 数据库名`
 
-查看表：`show tables;`
+查看表：`show tables;`理论                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
 
 **配置远程访问**（从5.7开始就推荐使用ssh连接，auth_socket）
 
@@ -638,6 +690,18 @@ mysql>update user set plugin="mysql_native_password" where user='root';
 mysql>flush privileges;
 mysql>exit
 >service mysql restart
+```
+
+### 16.4 安装python
+
+```
+sudo apt install python2
+sudo apt install python3
+sudo apt install python-pip
+sudo apt install python-pip3
+
+#验证
+python -V
 ```
 
 
