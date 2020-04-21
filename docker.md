@@ -103,6 +103,9 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl restart docker
 
+#查看docker信息
+docker info
+
 #安装一个tomcat
 docker pull tomcat
 docker images
@@ -476,3 +479,6 @@ YAML语言是一种通用的数据串行化格式，**基本规则：**
 - 低信噪比（噪是干扰项），很多标点符号对阅读无帮助性，还要有大括号
 - json不支持多行字符串，换行要用“\n”
 
+
+
+ 
