@@ -1,6 +1,6 @@
 
 
-基于Docker搭建Gitlab、Nexus、Harbor。
+​		基于Docker搭建Gitlab、Nexus、Harbor。
 
 ## 1.搭建Gitlab（代码管理平台）
 
