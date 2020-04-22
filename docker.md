@@ -1,3 +1,5 @@
+​		docker和dockercompose并不适用于生产环境，只适用于测试环境，而dockercompose就是一个集成测试环境，它可以在一个配置文件把所有需要的服务一次性启动和一次性卸载。生产环境使用kubernetes。
+
 ## 1. Docker简介
 
 ​		Docker 是一个开源的应用容器引擎，让开发者可以打包他们的应用以及依赖包到一个可移植的容器中,然后发布到任何流行的[Linux](https://baike.baidu.com/item/Linux)机器或Windows 机器上,也可以实现虚拟化,容器是完全使用沙箱机制,相互之间不会有任何接口。
@@ -481,27 +483,57 @@ YAML语言是一种通用的数据串行化格式，**基本规则：**
 
 ## 8.  DockerCompose网络设置
 
- 
+​		默认情况下，Compose会为我们创建一个网络，服务的每一个容器都会加入该网络中。这样，容器就可以被该网络中的其它容器访问，不仅如此，该容器还能以服务名称作为hostname被其它容器访问。
+
+​		默认情况下，应用程序的网络名称基于compose工程名称，而项目名称基于docker-compose.yml所在目录点名称。如需修改工程名称，可使用--project-name标识或COMPOSE_PORJECT_NAME环境变量。
+
+​		假如一个应用程序在名为myapp点目录中，并且docker-compose.yml如下：
+
+```yml
+version: '2'
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+  db:
+    image: postgres
+```
+
+当我们执行`docker-compose up`时，会执行以下几步：
+
+- 创建一个名为myapp default点网络
+- 使用web服务的配置创建容器，它以web这个名称假如网络myapp default
+- 使用db服务点配置创建容器，它以db这个名称加入网络myapp default
+
+容器间可使用服务名称（web或db ）代替ip，比如在配置文件中使用服务名代替ip，保证安全性。
 
 
 
-一次构建，到处运行整个完整流程
+### 8.1 更改dockercompose网络
 
-代码上传到gitlab，拉取下来
+```shell
+#默认一个容器一个局域网，可以创建一个局域网供不同容器使用，做到只有一个服务
+#就像harbor有多个服务，但只有nginx一个入口  
+#查看容器网络
+docker network ls
+NETWORK ID          NAME                DRIVER              SCOPE
+05dadd3be3d4        bridge              bridge              local
+fb5756a720c3        host                host                local
+c003803edca8        nexus_default       bridge              local
+61b983256e7d        none                null                local
 
-打包过程应该在linux中执行
+#创建一个网络
+docker network create <Network Name>
 
+#把创建的network(比如myapp)加到docker-compose.yml中
+networks:
+  default:
+    external:
+      name: myapp
 
-
-
-
-
-
-
-
-
-
-
+#如果不想把mysql暴露在公网连接，可以在docker-compose.yml中把端口配置去掉
+```
 
 
 
