@@ -1,17 +1,17 @@
 
 
-基于Docker搭建搭建
+基于Docker搭建Gitlab、Nexus、Harbor。
 
 ## 1.搭建Gitlab（代码管理平台）
 
 ```yaml
-#在https://hub.docker.com/r/twang2218/gitlab-ce-zh中找gitlab找到汉化的中文版
+#在https://hub.docker.com/r/twang2218/gitlab-ce-zh中找gitlab找到的中文版
 docker pull twang2218/gitlab-ce-zh（中文版）
 docker pull gitlab/gitlab-ce（英文版）
 
 #如果想简单的运行一下看看，可以执行这个命令：
 docker run -d -p 3000:80 twang2218/gitlab-ce-zh:11.1.4
-#可以将 11.1.4 换成你所需要的版本标签。
+# 11.1.4 可换成你所需要的版本标签。
 
 vi /usr/local/docker/gitlab/docker-compose.yml
 version: '2'
@@ -107,7 +107,7 @@ ip:8081
 ```xml
 #配置认证信息：初始admin密码在
 vi /usr/local/docker/nexus/data/admin.password
-#登录后改成123456
+#登录后改成123456，一定要在页面改
 #在maven配置文件夹下的setting.xml中添加Nexus认证信息（server节点如下）
 vi /usr/local/apache-maven-3.6.1/conf/settings.xml
 <server>
@@ -360,6 +360,9 @@ docker tag nginx:latest 192.168.1.53/myshop/nginx:latest
 docker push 192.168.1.53/commons/IMAGE[:TAG]
 docker push 192.168.1.53/myshop/IMAGE[:TAG]
 docker push 192.168.1.53/myshop/nginx:latest
+
+#拉取推送完点镜像
+docker pull 192.168.1.53/myshop/nginx:latest
 ```
 
 
