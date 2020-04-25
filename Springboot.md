@@ -365,11 +365,19 @@ public interface MyMapper<T> extends Mapper<T>, MySqlMapper<T> {
 
 ```
 
+在maven的plugin中执行即可生成。
+
+通过idea的数据库空间也可以在一张表中生成，右键即可生成。
+
+![](E:\千锋教育\【千锋达摩院】微服务架构 2.0（上）Linux + Docker + Kubernetes +SpringBoot + SpringCloudAlibaba\Microservice\picture\使用idea生成代码.jpg)
 
 
 
 
 
+在springboot的入口中加上扫描@MapperScan(basePackages = "com.funtl.hello.spring.boot.mapper")
+
+在测试类中加上@Transation @Rollback作为测试增删防止产生脏数据。
 
 
 
