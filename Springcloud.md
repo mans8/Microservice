@@ -412,3 +412,306 @@ http://192.168.1.55:8848/nacos/
 docker-compose -f ./standalone-mysql-5.7.yaml logs -f
 ```
 
+
+
+
+
+## 6.创建服务提供者
+
+​		提供可复用和可调用服务的应用方
+
+### 6.1 pom
+
+创建spring-cloud-alibaba-provider目录，新建pom文件，在一级项目的module中加入
+
+```xml
+<module>spring-cloud-alibaba-provider<module>
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <parent>
+        <groupId>com.hgx</groupId>
+        <artifactId>spring-cloud-alibaba</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    
+    <artifactId>spring-cloud-alibaba-provider</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    
+    <licenses>
+        <license>
+            <name>Apache 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+    
+    <dependencies>
+        <!-- spring boot begin -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <!-- 做监控的 -->
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+        </dependency>
+        
+        <!-- spring cloud begin -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
+    </dependencies>
+    
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.hgx.spring.cloud.alibaba.provider.ProviderApplication</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+```
+
+### 6.2 配置yml
+
+创建src/main/java和src/main/resources
+
+在resources目录下创建application.yml
+
+```yaml
+spring:
+  application:
+    #跟项目名一样，且不能重名
+    name: service-provider
+  cloud:
+    nacos:
+      discovery:
+        # 服务注册中心
+        server-addr: 192.168.1.55:8848
+server:
+  # 服务端口
+  port: 8070
+management:
+  # 端点检查（健康检查）
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+```
+
+### 6.3 主类
+
+在java目录下创建com.hgx.spring.cloud.alibaba.provider，创建ProviderApplication类
+
+```java
+@SpringBootApplication
+@EnableDiscoverClient
+public class ProviderApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(ProviderApplication.class, args);
+    }
+}
+```
+
+### 6.4 接口类controller
+
+在java目录下创建controller文件夹，创建EchoController类
+
+```java
+@RestController
+public class EchoController {
+	@GetMapping(value = "/echo/{string}")
+    public String echo(@PathVariable("string") String string) {
+        return "return" + string;
+    }
+}
+```
+
+运行主类
+
+访问http://192.168.1.55:8070/echo/hi访问接口
+
+访问 http://192.168.1.55:8848/nacos/查看服务
+
+
+
+## 7.创建服务消费者
+
+会发起某个服务调用的应用方。
+
+### 7.1 pom
+
+创建spring-cloud-alibaba-consumer目录，新建pom文件，在一级项目的module中加入
+
+```xml
+<module>spring-cloud-alibaba-consumer<module>
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <parent>
+        <groupId>com.hgx</groupId>
+        <artifactId>spring-cloud-alibaba</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    
+    <artifactId>spring-cloud-alibaba-consumer</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    
+    <licenses>
+        <license>
+            <name>Apache 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+    
+    <dependencies>
+        <!-- spring boot begin -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <!-- 做监控的 -->
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+        </dependency>
+        
+        <!-- spring cloud begin -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
+    </dependencies>
+    
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.hgx.spring.cloud.alibaba.consumer.ProviderApplication</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+```
+
+### 7.2 配置yml
+
+创建src/main/java和src/main/resources
+
+在resources目录下创建application.yml
+
+```yaml
+spring:
+  application:
+    #跟项目名一样，且不能重名
+    name: service-consumer
+  cloud:
+    nacos:
+      discovery:
+        # 服务注册中心
+        server-addr: 192.168.1.55:8848
+server:
+  # 服务端口
+  port: 8080
+management:
+  # 端点检查（健康检查）
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+```
+
+### 7.3 主类
+
+在java目录下创建com.hgx.spring.cloud.alibaba.consumer，创建ConsumerApplication类
+
+```java
+@SpringBootApplication
+@EnableDiscoverClient
+public class ConsumerApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(ConsumerApplication.class, args);
+    }
+}
+```
+
+### 7.4 配置类
+
+在consumer下创建目录configure，创建类ConsumerConfiguration
+
+```java
+@Configuration
+public class ConsumerConfiguration {
+	//等于在配置文件中加入
+	//<bean id="restTemplate" class="org.springframework.web.client.RestTemplate">
+    @Bean
+    @LoadBalanced
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+}
+```
+
+
+
+### 7.5接口类controller
+
+在consumer下创建目录controller，创建类TestController
+
+```java
+@RestController
+public class TestController {
+    
+    private final RestTemplate restTemplate;
+    
+    @Autowired
+    public TestController(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
+    
+	@GetMapping(value = "/echo/{str}")
+    public String echo(@PathVariable("str") String string) {
+        return restTemplate.getForObject("http://service-provider/echo/" + str, String.class);
+    }
+}
+```
+
+
+
+
+
+
+
+
+
