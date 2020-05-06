@@ -358,7 +358,7 @@
 
 
 
-## 5.创建注册中心Nacos
+## 5.创建服务注册中心Nacos
 
  **[Nacos官方github](https://github.com/alibaba/Nacos "With a Title").**   **[Nacos官方文档](https://nacos.io/zh-cn/docs/what-is-nacos.html "With a Title").** 
 
@@ -541,6 +541,15 @@ public class EchoController {
     public String echo(@PathVariable("string") String string) {
         return "return" + string;
     }
+    
+    //测试负载均衡
+    @Value("${server.port}")
+    private String port;
+    
+    @GetMapping(value = "/lb")
+    public String lb() {
+        return "Provider port:" + port;
+    }
 }
 ```
 
@@ -709,9 +718,260 @@ public class TestController {
 
 
 
+## 8.Nacos Feign（负载均衡）
+
+​		声明式伪http客户端，它使得写http客户端变得更简单。使用feign只需要创建一个并注解。具有可插拔的注解特性，使用feign注解和JAX-RS注解。Feign支持可插拔的编码器和解码器。Feign默认集成了Ribbon，Nacos兼容Feign，默认实现了负载均衡。
+
+- Feign采用的是基于接口的注解
+- Feign整合了Ribbon
+
+### 8.1注入依赖
+
+在spring-cloud-alibaba-consumer项目中增加依赖
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-openfeign</artifactId>
+</dependency>
+```
+
+在consumer的主类中增加注解
+
+```java
+@SpringBootApplication
+@EnableDiscoverClient
+@EnableFeignClient
+public class ConsumerApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(ConsumerApplication.class, args);
+    }
+}
+```
+
+### 8.2接口类controller
+
+在consumer下创建目录controller，创建类TestEchoController
+
+```java
+@RestController
+public class TestEchoController {
+    
+    @Autowired
+    private EchoService echoService;
+    
+    @GetMapping(value = "/feign/echo/{str}")
+    public String echo(@PathVariable String str) {
+        return echoService.echo(str);
+    }
+    
+    @GetMapping(value = "/lb")
+    public String lb() {
+        return echoService.lb();
+    }
+}
+```
+
+在consumer下创建目录service，创建接口EchoService
+
+```java
+@FeignClient(name="service-provider")
+public interface EchoService {
+    @GetMapping(value = "/echo/{string}")
+    public String echo(@PathVariable("string") String string);
+    
+    @GetMapping(value = "/lb")
+    public String lb();
+
+}
+```
 
 
 
+## 9.分布式配置服务中心Nacos
+
+分布式系统中，由于服务数量巨多，为了方便服务配置文件统一管理，实时更新，所以需要分布式配置中心组件。
+
+### 9.1 Nacos Config
+
+Nacos提供用于存储配置和其它元数据的key/value存储，为分布式系统中的外部化配置提供服务器端和客户端支持。使用spring cloud alibaba nacos config，可以在nacos server集中管理spring cloud应用的外部属性配置。
+
+spring cloud alibaba nacos config是spring cloud config server和client的替代方案，客户端和服务器上的概念与spring environment和propertySource有着一致的抽象，在特殊的bootstrap阶段，配置被加载到spring环境中。当应用程序通过部署管道从开发到测试再到生产时，可以管理这些环境之间的配置，并确保应用程序具有迁移时需要运行的所有内容。
+
+### 9.2 创建nacos中的配置文件
+
+以配置consumer为例
+
+在consumer工程中接入依赖
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+</dependency>
+```
+
+访问http://192.168.1.55:8848/nacos/，创建一个名为service-consumer-config.yaml配置文件，内容如下：
+
+```yaml
+#配置不能有注释
+spring:
+  application:
+    #跟项目名一样，且不能重名
+    name: service-consumer
+  cloud:
+    nacos:
+      discovery:
+        # 服务注册中心
+        server-addr: 192.168.1.55:8848
+server:
+  # 服务端口
+  port: 8080
+management:
+  # 端点检查（健康检查）
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+user:
+  name: "任意一个名字"
+```
+
+在工程中把resources下的yml配置文件删除，在resources下新建bootstrap.properties，内容如下：
+
+```properties
+# nacos中配置的文件名
+spring.application.name=service-consumer-config
+# nacos的地址和端口
+spring.cloud.nacos.config.server-addr=192.168.1.55:8848
+# nacos中配置的文件类型
+spring.cloud.nacos.config.file-extension=yaml
+```
+
+springboot加载配置文件的优先级：bootstrap.properties -> bootstrap.yml -> application.properties -> application.yml
+
+### 9.3 加注解
+
+在TestEchiController
+
+```java
+@RefreshScope
+@RestController
+public class TestEchoController {
+    
+    @Autowired
+    private EchoService echoService;
+    
+    @GetMapping(value = "/feign/echo/{str}")
+    public String echo(@PathVariable String str) {
+        return echoService.echo(str);
+    }
+    //测试负载均衡
+    @GetMapping(value = "/lb")
+    public String lb() {
+        return echoService.lb();
+    }
+    //测试配置中心
+    @Value("${user.name}")
+    private String username;
+    @GetMapping(value = "/feign/echo")
+    public String echo() {
+        return echoService.echo(username);
+    }
+}
+```
+
+### 9.4 测试配置中心是否生效
+
+访问192.168.1.55:8080/feign/echo，会返回username。
+
+
+
+## 10.多环境配置
+
+​		三套环境：开发、测试、生产。spring为我们提供了springboot profile这个功能（maven也为我们提供了maven profile），只需要在启动时添加一个虚拟机参数，激活自己环境所要用的profile就可以了.
+
+
+
+### 10.1 添加依赖
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+</dependency>
+```
+
+### 10.1 编写专门配置文件
+
+在nacos中新增配置文件文件和在resources下新建properties
+
+- service-provider-config.yaml对应bootstrap.properties
+- service-provider-config-test.yaml对应bootstrap-test.properties
+- service-provider-config-prod.yaml对应bootstrap-prod.properties
+
+```yaml
+#service-provider-config.yaml(默认开发环境)
+spring:
+  application:
+    #跟项目名一样，且不能重名
+    name: service-provider
+  cloud:
+    nacos:
+      discovery:
+        # 服务注册中心
+        server-addr: 192.168.1.55:8848
+server:
+  # 服务端口
+  port: 8070
+management:
+  # 端点检查（健康检查）
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+# bootstrap.properties(默认开发环境)
+spring.application.name=service-provider-config
+spring.cloud.nacos.config.server-addr=192.168.1.55:8848
+spring.cloud.nacos.config.file-extension=yaml
+
+-------------------------------------------------------------------------------------------
+#service-provider-config-prod.yaml（生产环境）
+spring:
+  application:
+    #跟项目名一样，且不能重名
+    name: service-provider
+  cloud:
+    nacos:
+      discovery:
+        # 服务注册中心
+        server-addr: 192.168.1.55:8848
+server:
+  # 服务端口
+  port: 8071
+management:
+  # 端点检查（健康检查）
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+# bootstrap.properties(生产环境)
+spring.profiles.active=prod
+spring.application.name=service-provider-config
+spring.cloud.nacos.config.server-addr=192.168.1.55:8848
+spring.cloud.nacos.config.file-extension=yaml
+```
+
+### 10.2 添加启动参数
+
+```shell
+#开发时在idea中启动，在run configuration的active profiles中填写prod
+
+#打包启动项目时添加一个命令参数--spring.profile.active=prod
+java -jar 1.0.0-SNAPSHOT.jar --spring.profile.active=prod
+```
 
 
 
