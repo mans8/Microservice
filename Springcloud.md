@@ -975,3 +975,59 @@ java -jar 1.0.0-SNAPSHOT.jar --spring.profile.active=prod
 
 
 
+## 11.Sentinel分布式系统的流量防卫兵
+
+​		在微服务架构中，根据业务来拆分成一个个服务，服务与服务之间可以通过http/rpc相互调用，在springcloud中可以用restTemplate + LoadBalanceClient和Feign来调用。为了保证其高可用，当个服务通常会集群部署。由于网络或自身原因，服务并不能100%可用，如果单个服务出现问题，调用这个服务就会出现现成阻塞，此时若有大量请求涌入，servlet容器的线程资源就会被消耗完毕，导致服务瘫痪。服务与服务之间点依赖性，故障会传播，会对整个微服务系统造成灾难性的严重后果，这就是服务故障的“雪崩”效应。为了解决这个问题，业界提出了熔断器模型。
+
+​		阿里巴巴开源了sentinel组件，实现了熔断器模式，springcloud对这一组件进行了整合。在微服务架构中，一个请求需要调用多个服务是非常常见的。
+
+​		熔断器打开后，为了避免连锁故障，通过fallback方法可以直接返回一个固定值。
+
+
+
+### 11.1 Sentinel特征
+
+​		Sentinel以流量作为切入点，从流量控制、熔断降级、系统负载保护等多个维度保护服务的稳定性。
+
+**特征**：
+
+- **丰富的应用场景：**Sentinel承接了阿里巴巴近10年的双十一大促流量的核心场景，例如秒杀（即突发流量控制在系统容量可以承受的范围）、消息削峰填谷（对于突然到来的大量请求，您可以配置流控规则，以稳定的速度逐步处理这些请求，从而避免流量突刺造成系统负载过高）、集群流量控制、实时熔断下游不可用应用等。
+- **完备的实时监控：**Sentinel同时提供实时监控功能。可以在控制台中看到接入应用的单台机器秒级数据，甚至500台以下规模的集群的汇总运行情况。
+- **广泛的开源生态：**Sentinel提供开箱即用的与其它开源框架、库的整合模块，例如与Spring Cloud、Dubbo、gRPC的整合。您只需要引入相应的依赖并进行简单的配置即可快速接入Sentinel。
+- **完善的SPI扩展点：**Sentinel提供简单易用、完善的SPI扩展接口。您可以通过实现扩展接口来快速地定制逻辑。例如定制规则管理、适配动态数据源
+
+![](E:\千锋教育\【千锋达摩院】微服务架构 2.0（上）Linux + Docker + Kubernetes +SpringBoot + SpringCloudAlibaba\Microservice\picture\Sentinel主要特性.png)
+
+![](E:\千锋教育\【千锋达摩院】微服务架构 2.0（上）Linux + Docker + Kubernetes +SpringBoot + SpringCloudAlibaba\Microservice\picture\Sentinel开源生态.png)
+
+### 11.2 Sentinel控制台
+
+​			Sentinel提供一个轻量级的开源控制台，它提供机器发现以及健康管理、监控（单机和集群），规则管理和推送的功能。另外，鉴权在生产环境中也必不可少。这里，我们将会详细讲述如何通过简单的步骤就可以使用这些功能。Sentinel控制台最少应该包含如下功能：
+
+- **查看机器列表以及健康情况**：收集Sentinel客户端发送的心跳包，用于判断机器是否在线。
+- **监控（单机和集群聚合）**：通过Sentinel客户端暴露的监控API，定期拉取并且聚合应用监控信息，最终可以实现秒级的实时监控。
+- **规则管理和推送**：统一管理推送规则。
+- **鉴权**：生产环境中鉴权非常重要。这里每个开发者需要根据自己的实际情况进行定制。
+
+```shell
+#获取
+从https://github.com/alibaba/Sentinel/releases下载
+
+#启动（需要jdk 1.8以上）
+java -Dserver.port=8080 -Dcsp.sentinel.dashboard.server=localhost:8080 -Dproject.name=sentinel-dashboard -jar sentinel-dashboard-1.7.2.jar
+
+#鉴权
+#如果省略这两个参数，账号密码默认为sentinel
+-Dsentinel.dashboard.auth.username=sentinel用于指定控制台的登录用户名为sentinel
+-Dsentinel.dashboard.auth.password=123465用于指定密码为123465
+
+#访问
+localhost:8080
+```
+
+
+
+
+
+
+
