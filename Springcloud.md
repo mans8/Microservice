@@ -1025,9 +1025,56 @@ java -Dserver.port=8080 -Dcsp.sentinel.dashboard.server=localhost:8080 -Dproject
 localhost:8080
 ```
 
+### 11.3 Sentinel客户端接入
 
+在工程的配置中追加
 
+```yaml
+spring:
+  cloud:
+    sentinel:
+      transport:
+        dashboard: localhost:8888
+feign:
+  sentinel:
+    enabled: true
+```
 
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-alibaba-sentinel</artifactId> 
+</dependency>
+```
 
+### 11.4测试fallback
 
+在consumer中添加
+
+```java
+@Component
+public class EchoServiceFallback implements EchoService {
+    @Override
+    public String echo(String string) {
+        return "网络有问题";
+    }
+    @Override
+    public String lb() {
+        return "请联系管理员";
+    }
+}
+```
+
+```java
+@FeignClient(value = "service-provider", fallback = EchoServiceFallback.class)
+public interface EchoService {
+    @GetMapping(value = "/echo/{string}")
+    public String echo(@PathVariable("string") String string);
+    
+    @GetMapping(value = "/lb")
+    public String lb();
+}
+```
+
+启动consumer，不启动provider，访问localhost:8080/feign/echo/hi
 
