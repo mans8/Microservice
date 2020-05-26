@@ -813,13 +813,24 @@ public class User implements Serializable{}
 
 
 
+## 9. dubbo负载均衡
 
+dubbo提供多种负载均衡，缺省为random随机调用。
 
+### 9.1 负载均衡策略
 
+- **随机（Random LoadBalance）**：按权重设置随机概率，在一个截面上碰撞的概率高，但调用量越大分布越均匀，而且按概率使用权重后也比较均匀，有利于动态调整提供者权重。
+- **轮循（RoundRobin LoadBalance）**：按公约后的权重设置轮循比例，存在慢的提供者累积请求的问题，比如：第二台机器很慢，但没挂，当请求调到第二台时就卡在那，久而久之，所有请求都卡在第二台上。
+- **最少活跃调用数（LeastActive LoadBalance）**：相同活跃数随机，活跃数指调用前后计数差，使慢的提供者收到更少请求，因为越慢的提供者的调用前后计数差会越大。
+- **一致性Hash（ConsistenHash LoadBalance）**：相同参数的请求总是发到同一提供者。当某一台提供者挂掉时，原本发往该提供者的请求，基于虚拟节点，平摊到其它提供者，不会引起剧烈变动。
 
+### 9.2 配置负载均衡策略
 
+​		修改dubbo-provider项目的负载均衡策略，默认的负载均衡策略是随机，可配置的值是：random、roundrobin、leastactive、consistenthash
 
-
-
-
+```yaml
+dubbo:
+  provider:
+    loadbalance: roundrobin
+```
 
