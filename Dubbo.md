@@ -744,3 +744,82 @@ management:
 
 
 
+## 8.dubbo实现高速序列化
+
+序列化：将对象转换为二进制进行传输
+
+反序列化：将二进制转换为对象进行传输
+
+### 8.1 dubbo中的序列化
+
+dubbo RPC是Dubbo体系中最核心的一种高性能、高吞吐量的远程调用方式，可以称之为多路复用的TCP长连接调用：
+
+- **长连接**：避免了多次调用新建TCP连接，提高了调用的响应速度
+- **多路复用**：单个TCP长连接可以交替传递多个请求和响应的消息，降低了连接的等待闲置时间，从而减少了同样并发数下的网络连接数，提高了系统吞吐量
+
+Dubbo RPC主要用于两个Dubbo系统之间的远程调用，特别适合高并发、小数据的互联场景。而序列化对于远程调用的响应速度、吞吐量、网络带宽消耗等同样也起着至关重要的作用，是我们提升分布式系统性能的最关键的因素之一。
+
+### 8.2 Dubbo支持的序列化
+
+- **dubbo序列化**：阿里尚未开发成熟的高效java序列化实现，阿里不建议在生产环境使用它。
+- **hessian2序列化**：hessian是一种跨语言的高效二进制序列化方式。但这里实际不是原生的hessian序列化，而是阿里修改过的hessian lite，它是**dubbo RPC默认**启用的序列化方式。
+- **json序列化**：目前有两种实现，一种是阿里的fastjson，另一种是采用dubbo中自己实现的简单json库，但其实都不是特别成熟，而且json这种文本序列化性能一般且不如上面两种序列化。
+- **java序列化**：JDK实现，性能不理想。
+
+### 8.3 Dubbo中选用的序列化
+
+​		Dubbo是java to java的，但hessian是跨语言的，不会单独对java进行优化。最近几年，新的序列化方式不断刷新序列化性能上限，最典型的包括：
+
+- 专门针对java语言的：**Kryo**，FST等
+- 跨语言的：Protostuff，ProtoBuf，**Thrift**，Avro，MsgPack等等
+
+> 注意：在面向生产环境中，目前更优先选择Kryo。
+
+### 8.4 启用Kryo序列化
+
+服务提供者kryo，服务消费者Kyro
+
+```xml
+<!-- 在统一的dependency中加 -->
+<properties>
+    <dubbo-kryo.version>2.7.2</dubbo-kryo.version>
+</properties>
+
+<!-- 在消费者和提供者项目中加 -->
+<dependency>
+    <groupId>org.apache.dubbo</groupId>
+    <artifactId>dubbo-serialization-kryo</artifactId>
+    <version>${dubbo-kryo.version}</version>         
+</dependency>
+```
+
+
+
+在响应配置中增加协议
+
+```yaml
+dubbo:
+  protocol:
+    serization: kryo
+```
+
+序列化说明	
+
+```java
+//想要使用kryo序列化只需要DTO/Domain/Entity这类传输对象实现序列化接口即可，无需额外再做配置，如：
+//在对一个类做序列化时，可能级联引用到很多类，如java集合类。针对这种情况，dubbo已经将JDK中的常用类进行了注册。
+public class User implements Serializable{}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
