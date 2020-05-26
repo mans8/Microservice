@@ -834,3 +834,51 @@ dubbo:
     loadbalance: roundrobin
 ```
 
+
+
+## 10. dubbo外部化配置Nacos（配置中心）
+
+### 10.1 接入配置中心
+
+在dubbo-consumer中修改pom，引入
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+</dependency>
+```
+
+### 10.2 在Nacos中新建配置
+
+登录nacos中新建配置*dubbo-consumer-config.yaml*
+
+```yaml
+spring:
+  application:
+    name: dubbo-consumer
+  main:
+    allow-bean-definition-overriding: true
+dubbo:
+  scan:
+    base-package: com.hgx.apache.dubbo.consumer.controller
+  protocol:
+    name: dubbo
+    port: -1
+    serialization: kryo
+  registry:
+    address: nacos://192.168.1.55:8848
+server:                                                                                                                                                                                         ； 
+  port: 8080
+```
+
+### 10.3 修改客户端配置
+
+删除dubbo-consumer的配置文件，创建名为bootstrap.properties的配置文件并删除之前创建的application.yml配置文件
+
+```properties
+spring.application.name=dubbo-consumer-config
+spring.cloud.nacos.config.server-addr=192.168.1.55:8848
+spring.cloud.nacos.config.file-extension=yaml
+```
+
