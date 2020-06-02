@@ -1,4 +1,6 @@
-## 1.前端知识
+## 0000000000000
+
+## 2-1.前端知识
 
 ### 1.1 前端三要素
 
@@ -490,6 +492,66 @@ var vm = new Vue({
         computed: {
             getCurrentTime2: function () {
                 return Date.now();
+            }
+        }
+    });
+</script>
+</body>
+</html>
+```
+
+### 2.8 内容分发与自定义事件
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" >
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<title>Document</title>
+</head>
+<body>
+<div id="app">
+    <todo>
+        <todo-title slot="todo-title" v-bind:title="title"></todo-title>
+        <todo-items slot="todo-items" v-for="(item, index) in items" v-bind:item="item" v-bind:index="index" v-on:remove="removeItems(index)"></todo-title>
+    </todo>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+<script type="text/javascript">
+    Vue.component("todo", {
+        template: "<div>\
+        		      <slot name='todo-title'></slot>\
+					 <ul>\
+					     <slot name='todo-items'></slot>\
+        			  </ur>\
+				 </div>
+        "
+    });
+    Vue.component("todo-title", {
+        props: ["title"],
+        template: "<h1>{{title}}</h1>"
+    });
+    Vue.component("todo-items", {
+        props: ["item", "index"],
+        template: "<li>{{index}}.{{item}} <button @click='remove(index)'>删除</button></li>",
+        methods: {
+            remove: function (index) {
+                this.$emit("remove", index);
+            }
+        }
+    });
+    
+    var vm = new Vue({
+        el: "#app",
+        data: {
+            title: "测试",
+            items: ["sss","ddd","eee"]
+        }
+        methods: {
+            removeItems: function (index) {
+                this.items.splice(index, 1);
             }
         }
     });
