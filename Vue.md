@@ -183,7 +183,7 @@ MVVM模式和MVC一样，主要的目的是分离视图（View）和模型（Mod
 - **独立开发：**开发人员可以专注于业务逻辑和数据的开发（ViewModel），设计人员可以专注于页面设计。
 - **可测试：**界面素来是难以测试的，而现在测试可以针对ViewModel来写。
 
-## 2. Vue
+## 2. Vue基础
 
 https://cn.vuejs.org/v2/guide/
 
@@ -558,5 +558,323 @@ var vm = new Vue({
 </script>
 </body>
 </html>
+```
+
+
+
+## 3. VueCli
+
+​		vue-cli官方提供的一个脚手架（预先定义好的目录结构及基础代码，创建maven项目时可以选择创建一个骨架项目，这个骨架项目就是脚手架）用于快速生成一个vue的项目模板
+
+- 统一的目录结构
+- 本地调试
+- 热部署
+- 单元测试
+- 集成打包上限
+
+### 3.1 VueCli安装及运行
+
+```powershell
+#安装nodejs，检测是否安装
+npm -v
+node -v
+
+#安装vue-cli
+npm install vue-cli -g -registry=https://registry.npm.taobao.org
+#检查安装是否成功
+vue list
+#初始一个项目
+vue init webpack hello-vue-cli
+? Project name hello-vue-cli
+? Project description A Vue.js project
+? Author 小新哥 <403713133@qq.com>
+? Vue build (Use arrow keys)
+? Vue build standalone
+? Install vue-router? No
+? Use ESLint to lint your code? No
+? Set up unit tests No
+? Setup e2e tests with Nightwatch? No
+? Should we run `npm install` for you after the project has been created? (recommended) no
+
+   vue-cli · Generated "hello-vue-cli".
+
+# Project initialization finished!
+# ========================
+
+To get started:
+
+  cd hello-vue-cli
+  npm install (or if using yarn: yarn)
+  npm run dev
+
+Documentation can be found at https://vuejs-templates.github.io/webpack
+
+cd hello-vue-cli
+npm install --registry=https://registry.npm.taobao.org
+
+#启动该项目
+npm run dev
+#访问
+localhost:8080
+```
+
+
+
+## 4. Vue程序
+
+### 4.1 简单Vue程序
+
+页面是组件的容器，实现组件与组件之间的跳转。
+
+index.js
+
+```javascript
+import Vue from 'Vue'
+import Router from 'vue-router'
+import Content from '@/components/Content'
+
+Vue.use(Router);
+
+export default new Router({
+    routes: [
+        name: 'content',
+        path: '/content',
+        component: Content
+    ]
+})
+```
+
+main.js
+
+```javascript
+import Vue from 'vue'
+import App from './App'
+import router from './router'
+Vue.config.productionTip = false
+new Vue({
+    el: '#app',
+    components: {App},
+    router,
+    template: '<App/>'
+})
+
+
+```
+
+App.vue
+
+```vue
+<template>
+    <div id="app">
+        <router-link to="/">首页</router-link>
+        <router-link to="/content">内容</router-link>
+    </div>
+</template>
+<script>
+    export default {
+        name: 'App'
+    }
+</script>
+<style>
+#app {
+    font-family: 'Avenir', Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-align: center;
+    color: #2c3e50;
+    margin-top: 60px;
+}
+</style>
+
+```
+
+Content.vue
+
+```vue
+<template>
+	<div>
+        我是内容页
+    </div>
+</template>
+
+<script>
+    export default {
+        name: "Content"
+    }
+</script>
+
+<style scoped>
+    
+</style>
+```
+
+
+
+
+
+### 4.2 使用框架ElementUI
+
+https://element.eleme.cn/#/zh-CN/component/installation
+
+```powershell
+#安装
+npm i element-ui -S
+
+#创建一个名为vue-element的工程
+vue init webpack hello-vue-element
+
+#安装依赖
+#vue-router、element-ui、sass-loader和node-sass四个插件
+cd vue-element
+#安装vue-router
+npm install --registry=https://registry.npm.taobao.org
+#安装element-ui
+npm i element-ui -S --registry=https://registry.npm.taobao.org
+#安装asaa加载器
+npm install sass-loader node-sass --save-dev --registry=https://registry.npm.taobao.org
+#安装依赖
+npm install --registry=https://registry.npm.taobao.org
+#启动项目
+npm run dev
+```
+
+在App.vue中加入以下内容：
+
+```vue
+<template>
+    <div id="app">
+        <router-view/>
+    </div>
+</template>
+```
+
+在 main.js 中写入以下内容：
+
+```javascript
+import Vue from 'vue';
+import App from './App.vue';
+import ElementUI from 'element-ui';
+import 'element-ui/lib/theme-chalk/index.css'
+
+Vue.use(ElementUI);
+
+new Vue({
+  el: '#app',
+  components: {App},
+  template: '<App/>',
+  render: h => h(App)
+});
+```
+
+在src/views下创建Login.vue
+
+```vue
+<template>
+	<div>
+        <el-form ref="form" :model="form" label-width="80px">
+            <el-form-item label="账号">
+    			<el-input v-model="form.username"></el-input>
+			</el-form-item>
+            <el-form-item label="密码">
+    			<el-input type="password" v-model="form.password"></el-input>
+  			</el-form-item>
+            <el-form-item>
+                <el-button type="primary" @click="login(form)">登录</el-button>
+    		</el-form-item>
+    	</el-form>
+    </div>
+</template>
+
+
+<script>
+    export default {
+        name: "Login.vue"
+        data() {
+            return {
+                form: {
+                    username: '',
+                    password: ''
+                },
+                rules: {
+                    username: [
+                        {required: true, message: '请输入账号', trigger: 'blur'}
+                    ],
+                    password: [
+                        {required: true, message: '请输入密码', trigger: 'blur'}
+                    ],
+                }  
+            }
+        },
+        methods: {
+            login: function(formName) {
+                this.$refs[formName].validate((valid) => {
+                    if (valid) {
+                        this.$router.push("/main");
+                    } else {
+                        this.$message.error('请输入账号密码！');
+                        return false;
+                    }
+                });
+            }
+        }
+    }
+</script>
+<style scoped>
+    .login-box {
+        width: 400px;
+        border: 1px solid black;
+        margin: 0 auto;
+        padding: 20px 50px 20px 20px;
+    }
+</style>
+```
+
+在src/views下创建Main.vue
+
+```javascript
+import Vue from 'Vue'
+import App from './App'
+import router from './router'
+
+import ElementUI from 'element-ui'
+import 'element-ui/lib/theme-chalk/index.css'
+
+Vue.config.productionTip = false
+
+Vue.use(ElementUI);
+
+new Router({
+    el: '#app',
+    components: {App},
+    template: '<App/>',
+    router,
+    render: h => h(App)
+});
+```
+
+在src/router下创建index.js
+
+```javascript
+import Vue from 'Vue'
+import Router from 'vue-router'
+import Content from '@/views/Main'
+import Content from '@/views/Login'
+
+Vue.use(Router);
+
+export default new Router({
+    routes: [
+        {
+            name: 'Login',
+       		path: '/login',
+        	component: Login
+        },
+        {
+            name: 'Main',
+        	path: '/main',
+        	component: Main
+        }
+    ]
+});
 ```
 
