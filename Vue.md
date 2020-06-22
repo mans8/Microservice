@@ -878,3 +878,224 @@ export default new Router({
 });
 ```
 
+
+
+## 5. VueRouter嵌套路由
+
+​		嵌套路由又称子路由，在实际应用中，通常由多层嵌套的组件组合而成。同样的，URL中各段动态路径也按某种结构对应嵌套的各层组件。
+
+### 5.1 简单实例
+
+```html
+<script src="https://unpkg.com/vue/dist/vue.js"></script>
+<script src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
+ 
+<div id="app">
+  <h1>Hello App!</h1>
+  <p>
+    <!-- 使用 router-link 组件来导航. -->
+    <!-- 通过传入 `to` 属性指定链接. -->
+    <!-- <router-link> 默认会被渲染成一个 `<a>` 标签 -->
+    <router-link to="/foo">Go to Foo</router-link>
+    <router-link to="/bar">Go to Bar</router-link>
+  </p>
+  <!-- 路由出口 -->
+  <!-- 路由匹配到的组件将渲染在这里 -->
+  <router-view></router-view>
+</div>
+```
+
+```javascript
+// 0. 如果使用模块化机制编程，导入 Vue 和 VueRouter，要调用 Vue.use(VueRouter)
+ 
+// 1. 定义（路由）组件。
+// 可以从其他文件 import 进来
+const Foo = { template: '<div>foo</div>' }
+const Bar = { template: '<div>bar</div>' }
+ 
+// 2. 定义路由
+// 每个路由应该映射一个组件。 其中"component" 可以是
+// 通过 Vue.extend() 创建的组件构造器，
+// 或者，只是一个组件配置对象。
+// 我们晚点再讨论嵌套路由。
+const routes = [
+  { path: '/foo', component: Foo },
+  { path: '/bar', component: Bar }
+]
+ 
+// 3. 创建 router 实例，然后传 `routes` 配置
+// 你还可以传别的配置参数, 不过先这么简单着吧。
+const router = new VueRouter({
+  routes // （缩写）相当于 routes: routes
+})
+ 
+// 4. 创建和挂载根实例。
+// 记得要通过 router 配置参数注入路由，
+// 从而让整个应用都有路由功能
+const app = new Vue({
+  router
+}).$mount('#app')
+ 
+// 现在，应用已经启动了！
+
+```
+
+
+
+### 5.2 路由模式
+
+两种路由模式：
+
+- hash：带路径#符号，如：http://localhost/#/login
+- history：路径不带#符号，如：http://localhost/login
+
+
+
+### 5.3路由钩子与异步请求
+
+路由中的钩子函数：
+
+- beforeRouterEnter：在进入路由前执行
+- beforeRouterLeave：在离开路由前执行
+
+```javascript
+export default {
+	props: ['id'],
+	name: "UserProfile",
+    beforeRouterEnter: (to, from, next) {
+    	console.log("准备进入个人信息");
+	},
+    beforeRouterLeave: (to, from, next) {
+        console.log("准备离开个人信息");
+    }
+}
+```
+
+### 5.4 在钩子函数中使用异步请求
+
+```shell
+#安装Axios
+npm install axios -s --registry=https://registry.npm.taobao.org
+```
+
+```javascript
+//引用Axios
+import axios from 'axios'
+Vue.prototype.axios = axios;
+```
+
+```
+<script>
+	export default {
+		mounted: {
+			getData: function () {
+				this.axios({
+					type: 'get',
+					url: 'http://localhost:8080/static/data.json'
+				}).then(response => {
+					console.log(response);
+				}).catch(error => {
+					console.log(error);
+				});
+			}
+		}
+	
+	}
+</script>
+```
+
+
+
+## 6. Vuex状态管理
+
+​		Vuex是一个专为Vue. js应用程序开发的状态管理模式。它采用集中式存储管理应用的所有组件的状态，并以相应的规则保证状态以一种可以预测的方式发生变化。前端无状态，后台session分离，session不能放大量数据，             
+
+安装
+
+```
+npm install vuex -save --registry=https://registry.npm.taobao.org
+```
+
+修改main.js文件，导入Vuex，关键代码如下：
+
+```javascript
+import App from './App'
+import router from './router'
+import Element from 'element-ui'
+import 'element-ui/lib/theme-chalk/index.css'
+import axios from 'axios'
+import Vuex from 'vuex'
+
+/*原型链*/
+Vue.prototype.axios = axios;
+Vue.config.productionTip = false
+
+Vue.use(ElementUI);
+Vue.use(Vuex);
+
+router.beforeEach( (to, from, next) => {
+    
+    let isLogin = sessionStorage.getItem("isLogin");
+    
+    if (to.path == "/logout") {
+        sessionStorage.clear();
+        next({path: "/login"});
+    }
+    
+    else if (to.path == "/login") {
+        if (isLogin == "true") {
+            next({path: "/main"});
+        }
+    }
+    
+    else if (isLogin == null) {
+        next({path: "/login"});
+    }  
+    
+})
+```
+
+
+
+```javascript
+import Vue from 'vue'
+import Vuex from 'vuex'
+
+Vue.use(Vuex);
+/*状态存储*/
+const state = sessionStorage.getItem("state") ? JSON.parse(sessionStorage.getItem("state")) : {
+    user: {
+        username: ""
+    }
+}
+/*取值*/
+const getters = {
+    getUser(state) {
+        return state.user;
+    }
+}
+/*更新*/
+const mutations = {
+    updateUser(state, user) {
+        state.user = user;
+    }
+}
+/*异步更新*/
+const action = {
+    asyncUpdateUser(context, user) n
+} 
+/*暴露*/
+export default new Vuex.Store({
+    state,
+    getters,
+    mutations,
+    actions
+})
+```
+
+
+
+
+
+
+
