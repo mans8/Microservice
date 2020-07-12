@@ -190,15 +190,329 @@ network:
         addresses: [192.168.1.1]
 
 #配置主机名
-hostnamectl set-hostname kubernetes-master
+hostnamectl set-hostname kubernetes-node-02
 
 #修改host文件（加入192.168.1.60 kubernetes-master）
 vi /etc/hosts
+```
+
+### 2.6 配置及安装k8s
+
+```shell
+cd /usr/local
+mkdir kubernetes
+cd kubernetes
+mkdir cluster
+kubeadm config print init-defaults --kubeconfig ClusterConfiguration > kubeadm.yml
+vi kubeadm.yml
+```
+
+```yml
+apiVersion: kubeadm.k8s.io/v1beta2
+bootstrapTokens:
+- groups:
+  - system:bootstrappers:kubeadm:default-node-token
+  token: abcdef.0123456789abcdef
+  ttl: 24h0m0s
+  usages:
+  - signing
+  - authentication
+kind: InitConfiguration
+localAPIEndpoint:
+  #换成master的地址
+  advertiseAddress: 192.168.1.60
+  bindPort: 6443
+nodeRegistration:
+  criSocket: /var/run/dockershim.sock
+  name: kubernetes-master
+  taints:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+---
+apiServer:
+  timeoutForControlPlane: 4m0s
+apiVersion: kubeadm.k8s.io/v1beta2
+certificatesDir: /etc/kubernetes/pki
+clusterName: kubernetes
+controllerManager: {}
+dns:
+  type: CoreDNS
+etcd:
+  local:
+    dataDir: /var/lib/etcd
+#换成阿里巴巴的景象
+imageRepository: registry.aliyuncs.com/google_containers
+kind: ClusterConfiguration
+kubernetesVersion: v1.18.0
+networking:
+  dnsDomain: cluster.local
+  #pod用来运行容器，可以运行一组容器，运行容器的最小单元
+  podSubnet: "10.244.0.0/16"
+  serviceSubnet: 10.96.0.0/12
+scheduler: {}
+
+```
+
+```shell
+#查看下载所需镜像
+kubeadm config images list --config kubeadm.yml
+------------------------------------------------------------------
+#输出如下
+#apiserver，网关，提供restful风格的API，类似于docker的守护进程接收解析运行docker命令入口
+registry.aliyuncs.com/google_containers/kube-apiserver:v1.18.0
+#管理器，自动重启pod
+registry.aliyuncs.com/google_containers/kube-controller-manager:v1.18.0
+#调度，配置强扛大压，配置弱扛小压
+registry.aliyuncs.com/google_containers/kube-scheduler:v1.18.0
+#代理，整个k8s是个大型内网，外网到内网的各个节点
+registry.aliyuncs.com/google_containers/kube-proxy:v1.18.0
+#暂停，跟容器的暂停启动有关系
+registry.aliyuncs.com/google_containers/pause:3.2
+#服务注册与发现，管理内网中成千上万的服务节点
+registry.aliyuncs.com/google_containers/etcd:3.4.3-0
+#核心DNS，通过服务名找到服务器，可以跨网段
+registry.aliyuncs.com/google_containers/coredns:1.6.7
+```
+
+```shell
+#拉取所需镜像
+kubeadm config images pull --config kubeadm.yml
+#输出如下
+[config/images] Pulled registry.aliyuncs.com/google_containers/kube-apiserver:v1.18.0
+[config/images] Pulled registry.aliyuncs.com/google_containers/kube-controller-manager:v1.18.0
+[config/images] Pulled registry.aliyuncs.com/google_containers/kube-scheduler:v1.18.0
+[config/images] Pulled registry.aliyuncs.com/google_containers/kube-proxy:v1.18.0
+[config/images] Pulled registry.aliyuncs.com/google_containers/pause:3.2
+[config/images] Pulled registry.aliyuncs.com/google_containers/etcd:3.4.3-0
+[config/images] Pulled registry.aliyuncs.com/google_containers/coredns:1.6.7
+```
+
+### 2.7 安装主节点
+
+执行以下命令初始化主节点，该命令指定了初始化时需要使用的配置文件，其中添加`--experimental-upload-certs`参数可以在后续执行加入节点时自动分发证书文件，追加的`tee kubeadm-init.log`用以输出日志。
+
+> **注意：**如果安装kubernetes版本和下载的镜像版本不统一会出现`timed out waiting for the condition`错误。中途失败或是想修改配置可以使用`kubeadm reset`命令重置配置，再做初始化操作即可。
+
+节点间的通信使用的是gRPC，需要有证书，我们服务走的是dubbo。
+
+ 
+
+```shell
+#V1.15
+kubeadm init --config=kubeadm.yml --experimental-upload-certs | tee kubeadm-init.log
+#V1.16之后
+kubeadm init --config=kubeadm.yml --upload-certs | tee kubeadm-init.log
+------------------------------------------------------------------------------
+#输出如下
+省略........
+Your Kubernetes control-plane has initialized successfully!
+
+To start using your cluster, you need to run the following as a regular user:
+#配置，在/usr/local/kubernetes/cluster下
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config(管理员root不用这句)
+#配置网络
+You should now deploy a pod network to the cluster.
+Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
+  https://kubernetes.io/docs/concepts/cluster-administration/addons/
+
+Then you can join any number of worker nodes by running the following on each as root:
+
+kubeadm join 192.168.1.60:6443 --token abcdef.0123456789abcdef \
+    --discovery-token-ca-cert-hash sha256:f00f1ccb370ed340e11df145e2ff683d743624e1bb495aeeb5247bb9ad49e6ed 
+------------------------------------------------------------------------------
+#执行
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+#查看节点
+kubectl get node
+
+```
+
+### 2.8 安装从节点
+
+```shell
+#加入集群，在log中复制，并在node1和node2的默认/root目录下执行
+kubeadm join 192.168.1.60:6443 --token abcdef.0123456789abcdef \
+    --discovery-token-ca-cert-hash sha256:f00f1ccb370ed340e11df145e2ff683d743624e1bb495aeeb5247bb9ad49e6ed
+
+#在master机器上执行查看三个节点，因为没有配置网络，所以status是notready
+kubectl get node
+```
+
+### 2.9 配置网络
+
+容器网络是容器选择连接到其他容器、主机和外部网络的机制。容器的runtime提供了各种网络模式，每种模式都会产生不同的体验。例如，Docker默认情况下可以为容器配置以下网络：
+
+- **none**：将容器添加到一个容器专门的网络堆栈中，没有对外连接
+- **host**：将容器添加到主机的网络堆栈中，没有隔离
+- **default bridge**：默认网络模式，每个容器可以通过IP地址相互连接。
+- **自定义网桥**：用户定义的网桥，具有更多灵活性、隔离性和其它便利功能。
+
+#### 2.9.1 CNI
+
+​		CNI(Container Network Interface)是一个标准的、通用接口。在容器平台，Docker、Kubernetes、Mesos容器网络解决方案flannel，calico，weave。只要提供一个标准接口，就能为同样满足该协议的所有容器平台提供网络功能，CNI就是这样一个标准接口协议。
+
+#### 2.9.2 Kubernetes中的CNI插件
+
+​		CNI点初衷是创建一个框架，用于在配置或销毁容器时动态配置适当的网络配置和资源。插件负责为接口配置和管理IP地址，并且通常提供与IP管理、每个容器的IP分配、以及多主机连接相关的功能。容器运行时会调用网络插件，从而在容器启动时自动分配IP并且配置网络，并在删除容器时再次调用它以清理这些资源。（容器与容器之间的通信，pod与pod之间的通信）
+
+​		运行时或协调器决定了容器应该加入哪个网络以及它需要调用哪个插件。然后，插件会将接口添加到容器网络名空间中，作为一个veth对的一侧。接着，它会在主机进行更改，包括将veth的其他部分连接到网桥。再之后，它会通过调用单独的IPAM（IP地址管理）插件来分配IP地址并设置路由。
+
+​		在kubernetes中，kubelet可以在适当的时间调用它找到的插件，为通过kubelet启动的pod进行自动的网络配置。
+
+Kubernetes中可选的CNI插件：
+
+- Flannel
+- Calico
+- Canal
+- Weave
+
+
+
+### 2.10 Calico
+
+官网 https://docs.projectcalico.org/getting-started/kubernetes/quickstart
+
+kubectl是kubernetes的命令行工具。底层有restful风格API server
+
+```shell
+#在master中执行,/usr/local/kubernetes/cluster
+kubectl apply -f https://docs.projectcalico.org/v3.8/manifests/calico.yaml
+
+#在master中执行，必须全部出现running才算成功
+watch kubectl get pods --all-namespaces
+
+#分别在各个node中，查看镜像是否下载完成
+docker images
+
+#在master中执行查看各节点状态是否为ready
+kubectl get nodes
 ```
 
 
 
 
 
+### 2.11 部署容器
 
+#### 2.11.1 检查状态
+
+```shell
+#检查组件运行状态
+kubectl get cs
+
+#检查master状态
+kubectl cluster-info
+
+#检查node状态
+kubectl get nodes
+```
+
+#### 2.11.2 部署
+
+```shell
+#部署
+#类似于docker命令行工具docker run --name nginx -p 80:80 nginx
+#1.8后取消了replicas=2，所以只会启动一个
+#replicas=2启动两个实例
+#port=80，运行在k8s内部的80端口上，但并未映射出来。
+kubectl run nginx --image=nginx --replicas=2 --port=80
+#1.8以后使用脚本代替
+vi /usr/local/kubernetes/nginx-deployment.yaml
+#填入内容
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  # 创建2个nginx容器
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+#执行脚本
+kubectl apply -f nginx-deployment.yaml
+#查看已部署的服务
+kubectl get deployment
+#查看pod，pod是k8s运行容器的最小单元
+kubectl get pods
+```
+
+#### 2.11.3 发布
+
+```shell
+#发布服务，部署服务暴露端口
+kubectl expose deployment nginx --port=80 --type=LoadBalancer
+#输出如下：
+service/nginx exposed
+---------------------------------------------------------------------------------
+#查看已发布的服务
+kubectl get services
+#输出如下：
+NAME         TYPE           CLUSTER-IP    EXTERNAL-IP   PORT(S)        AGE
+kubernetes   ClusterIP      10.96.0.1     <none>        443/TCP        3d22h
+nginx        LoadBalancer   10.96.51.35   <pending>     80:30669/TCP   26s
+---------------------------------------------------------------------------------
+#查看服务详情
+kubectl describe service nginx
+#输出如下：
+Name:                     nginx
+Namespace:                default
+Labels:                   app=nginx
+Annotations:              <none>
+Selector:                 app=nginx
+Type:                     LoadBalancer
+IP:                       10.96.51.35
+Port:                     <unset>  80/TCP
+TargetPort:               80/TCP
+NodePort:                 <unset>  30669/TCP
+Endpoints:                192.168.140.69:80,192.168.141.194:80
+Session Affinity:         None
+External Traffic Policy:  Cluster
+Events:                   <none>
+```
+
+#### 2.11.4 验证
+
+```shell
+#验证是否成功
+#在node1和node2中执行，未操作node，但是node中已经有nginx启动，由k8s调度过来
+docker ps
+docker images
+docker exec -it 容器id /bin/bash（进入容器）
+whereis nginx（进入后查看安装位置）
+cat /usr/share/nginx/html/index.html
+#node主机地址+服务详情中NodePort
+浏览器访问http://192.168.1.71:30669/
+```
+
+#### 2.11.5停止服务
+
+注意：在node中删除容器会一直重启，只有在master中删除掉部署发布的服务，node中才会自动下线。
+
+```shell
+#删除已部署服务
+kubectl delete deployment nginx
+#输出如下：
+deployment.extensions "nginx" deleted
+
+#删除已发布服务
+kubectl delete service nginx
+#输出如下：
+service "nginx" deleted
+```
 
