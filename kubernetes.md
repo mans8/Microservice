@@ -1,6 +1,6 @@
 
 
-
+Kubernetes中文文档https://kubernetes.io/zh/docs/home/
 
 三大指标：高可用、高性能、高并发
 
@@ -31,15 +31,46 @@
 
 
 
-## 1. Kubernetes简介
+## 1. Kubernetes
 
-​		一套容器编排系统（是什么），**最重要是解决高可用**（做什么），具备以下几个功能
+### 1.1 简介
+
+一套开源的docker容器编排系统（是什么），调度计算集群节点，动态管理上面的作业，保证它们按照用户期望的状态运行，**最重要是解决高可用**（做什么），具备以下几个功能
 
 1. 容器自动重启
 2. 容器自动扩缩容
 3. 能实现滚动更新，金丝雀发布
 
 docker无法做到自动扩缩容，docker是测试级别，Kubernetes是生产级别。
+
+![avatar](.\picture\kubernetes.png)
+
+**pods：**一组紧密关联的容器集合，共享IPC（进程间通信）、Network（网络）和UTS namespace（UTS命名空间是Linux命名空间的一个子系统，主要作用是完成对容器Hostname和Domain的隔离，同时保存内核名称、版本，以及底层体系结构类型等信息），是Kubernetes调度的基本单位。
+
+**labels：**键值对（key/value）标签，可以被关联到如pod这样的对象上，主要作用是给用户一个直观的感受，比如这个Pod是用来防止数据库的。
+
+**GUI：**用户图形界面。
+
+**kubectl：**用于管理Kubernetes集群的命令行工具。
+
+**kube-apiserver：**提供了资源操作的唯一入口，提供认证、授权、访问控制、API注册和发现等机制。
+
+**Kubernetes Master：**集群主节点，主要有kube-apiserver、kube-scheduler、kube-controller-manager、etcd四个模块。
+
+> - kube-apiserver：资源操作唯一入口，认证、授权、访问控制、API注册和发现
+> - kube-scheduler：资源调度，按照预定的调度策略将Pod调度到响应的机器上
+> - kube-controller-manager：负责维护集群状态，比如故障检测、自动扩展、滚动更新等
+> - etcd： CoreOS基于Raft开发的分布式key-value存储，可用于服务发现、共享配置以及一致性保障（数据库选主、分布式锁）
+
+**Kubernetes  Node： **kubernetes集群子节点，主要由kubelet、kube-proxy、 runtime三个模块组成。
+
+> - runtime：负责镜像管理以及Pod和容器的真正运行，默认的容器运行时为Docker，还支持RKT容器
+> - kubelet：负责维持容器的生命周期，同时也负责Volume（CVI，Container Volume Interface）和网络（CNI，Container Network Interface）的管理
+> - kube-proxy：负责为Service提供cluster内部的服务发现和负载均衡
+
+**Image Registry：**镜像仓库，比如：Docker Hub或Docker私服。
+
+
 
 ### 1.2 运用
 
