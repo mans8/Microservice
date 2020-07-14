@@ -547,3 +547,82 @@ kubectl delete service nginx
 service "nginx" deleted
 ```
 
+
+
+### 2.12 通过资源配置运行容器
+
+概述
+
+通过run命令启动容器非常麻烦，docker提供了compose为我们解决了这个问题，而kubernetes是使用kubectl create命令就可以做到和compose一样的效果，该命令可以通过配置文件快速创建一个集群资源对象。
+
+
+
+#### 2.12.1 创建YML文件
+
+部署Deployment
+
+```shell
+#创建一个名为nginx-deployment.yml配置文件
+cd /usr/local/kubernetes/services
+vi nginx-deployment.yml
+----------------------------------------------
+#:set paste粘贴内容
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-app
+spec:
+  # 创建2个nginx容器
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        # 容器标签的名字，发布services时，selector需要在这里对应
+        app: nginx
+    spec:
+      # 配置容器，数组类型可以配置多个
+      containers:
+      # 容器名称
+      - name: nginx
+        # 容器镜像
+        image: nginx:1.17
+        # 暴露端口
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+# 类型，如:Pod/ReplicationController/Deployment/Service/Ingress
+kind: Service
+metadata:
+  name: nginx-http
+spec:
+  ports:
+    ## service暴露的端口
+    - port: 80
+      # pod上的端口，这里是将service暴露的端口转发到pod端口上
+      targetPort: 80
+  # 类型
+  type: LoadBalancer
+  # 标签选择器
+  selector:
+    #需要和上面部署的deployment名对应
+    name: nginx
+----------------------------------------------
+#部署
+kubectl create -f nginx-deployment.yml
+#删除
+kubectl delete -f nginx-deployment.yml
+----------------------------------------------
+#查看
+kubectl get pods
+kubectl get deployment
+kubectl get service
+----------------------------------------------
+#验证，端口号自动分配，从kubectl get service可以看到
+192.168.1.70:端口号
+
+```
+
