@@ -623,6 +623,221 @@ kubectl get service
 ----------------------------------------------
 #验证，端口号自动分配，从kubectl get service可以看到
 192.168.1.70:端口号
+```
 
+
+
+
+
+术语
+
+<hr>
+
+- **节点**：Kubernetes集群中的服务器
+- **集群**：Kubernetes管理的一组服务器集合
+- **边界路由器**：为局域网和Internet路由数据包的路由器，执行防火墙保护局域网
+- **集群网络**：遵循Kubernetes网络模型实现集群内的通信的具体实现，比如Flannel和Calico
+- **服务**：Kubernetes的服务（Service）是使用标签选择器标识的一组Pod Service（Deployment）。**除非另有说明，否则服务的虚拟IP仅可在集群内部访问。**
+
+
+
+
+
+## 3.三种外部访问方式
+
+### 3.1 NodePort（自己调试时用）
+
+​		NodePort服务是引导外部流量到你的服务的最原始方式。NodePort，正如这个名字所示，**在所有节点（虚拟机）上开放一个特定端口**，任何发送到该端口的流量都被转发到对应服务。
+
+NodePort服务特征入下：
+
+- 每个端口都只能是一种服务
+- 端口范围只能是30000-32767（可调）
+- 不在YAML配置文件中指定则会自动分配一个默认端口
+
+> 建议：不要在生产环境中使用这种方式暴露服务，大多时候我们应该让Kubernetes来选择端口
+
+### 3.2 LoadBalancer（）
+
+​		LoadBalancer服务是暴露服务到Internet的标准方式。所有通往你指定的端口的流量都会被转发到对应的服务。它没有过滤条件，没有路由等。这就意味着你几乎可以发送任何种类的流量到该服务，像HTTP，TCP，UDP，WebSocket，gRPC或其他任意种类。
+
+### 3.3 Ingress（真正使用）
+
+​		Ingress是一种服务类型。相反，它处于多个服务的前端，扮演着“智能路由”或者集群入口的角色。你可以使用Ingress来做许多不同的事，各种不同类型的Ingress控制器也有不同的能力。它允许你基于路径或者子域名来路由流量到后端服务。
+
+​		Ingress可能是暴露服务的最强大方式，但同时也是最复杂的。Ingress控制器有各种类型，包括Google Cloud Load Balance，Nginx，Contour，Istio等等。它有各种插件，比如cert-manager（为服务自动提供SSL证书）。
+
+​		如果你想要使用同一个IP暴露多个服务，这些服务都是使用相同的七层协议（典型如HTTP），你还可以获取各种开箱即用的特性（比如SSL，认证，路由等等）。
+
+
+
+
+
+
+
+## 4.Nginx虚拟主机
+
+​		虚拟主机是一种特殊的软硬件技术，他可以将网络上的每一台计算机分成多个虚拟主机，每个虚拟主机可以独立对外提供www服务，这样就可以实现一台主机对外提供多个web服务，每个虚拟主机之间是独立的，互不影响。
+
+通过Nginx可以实现虚拟主机的配置，Nginx支持三种类型的虚拟机配置
+
+- 基于IP的虚拟主机
+- 基于域名的虚拟主机
+- 基于端口的虚拟主机
+
+```
+#虚拟主机
+ROOT www.tomcat.com
+myshop www.myshop.com
+itoken www.itoken.com
+
+#虚拟目录
+localhost
+localhost/myshop
+localhost/itoken
+```
+
+
+
+
+
+### 4.1 基于docker部署Nginx
+
+```shell
+#在node2上部署一个nginx主机
+cd /usr/local
+mkdir docker
+cd docker
+mkdir nginx
+cd nginx
+vi docker-compose.yml
+---------------------------------------------------------------
+version: '3.1'
+services:
+  nginx:
+    restart: always
+    image: nginx
+    container_name: nginx
+    ports:
+      - 80:80
+      - 8080:8080
+    volumes:
+      - ./conf/nginx.conf:/etc/nginx/nginx.conf
+      - ./html:/usr/share/nginx/html
+---------------------------------------------------------------
+#在docker/nginx文件夹下穿件一个配置文件夹
+mkdir conf
+cd conf
+vi nginx.conf
+#内容为空保存
+```
+
+### 4.2 Nginx配置文件结构
+
+```
+# ...
+events {
+    # ...
+}
+
+http {
+    # ...
+    server{
+        # ....
+    }
+    
+    # ...
+    server{
+        # ...
+    }
+}
+```
+
+> 注意：每一个server就是一个虚拟主机。
+
+### 4.3  基于端口的虚拟主机配置
+
+**需求：**
+
+- Nginx对外提供80和8080两个端口监听服务
+- 请求80端口则请求html80目录下的html
+- 请求8080端口则请求html8080目录下的html
+
+**操作流程**
+
+- 创建目录及文件，在/usr/local/docker/nginx/html目录下创建html80和html8080两个目录，并分别创建两个index.html文件
+- 配置虚拟主机，创建并修改/usr/local/docker/nginx/conf目录下的nginx.conf（记得删除注解）
+
+```json
+# 启动进程，通常设置成和CPU的数量相等
+worker_processes  2;
+
+events {
+    # epoll是多路复用IO中的一种方式
+    # 仅适用于linux2.6以上的内核，可以大大提高nginx性能
+    use epoll;
+    # 单个后台worker process进程的最大并发连接数
+    worker_connections  1024;
+}
+
+http {
+    # 文件扩展名与文件类型映射表
+    include       mime.types;
+    # 默认文件类型，默认为text/plain
+    default_type  application/octet-stream;  
+    # 允许sendfile方式传输文件，默认为off，可以在http块，server块，location块。
+    sendfile on;
+    # 连接超时时间，默认为75s，可以在http，server，location块。
+    keepalive_timeout 65;
+    # 设定请求缓冲
+    client_header_buffer_size    2k;
+    # 配置虚拟主机192.168.1.71
+    server {
+        #监听端口
+        listen       80;
+        #监听地址（可IP可域名）
+        server_name  192.168.1.71;
+        location  / {
+            #根目录
+            root /usr/share/nginx/html/html80;
+            #设置默认页
+            index index.html index.htm;
+        }
+    }
+
+    server {
+        listen       8080;
+        server_name  192.168.1.71
+        location  / {
+           root /usr/share/nginx/html/html8080;
+           index index.html index.htm;
+        } 
+    }
+}
+```
+
+```shell
+#通过不同的端口访问到不同的index
+cd /usr/local/docker/nginx
+mkdir html
+cd html
+mkdir html80
+mkdir html8080
+cd html80
+vi index.html #内容填个nginx port 80
+cd ..
+cd html8080
+vi index.html #内容填个nginx port 8080
+-------------------------------------------------------------------------
+#启动
+cd /usr/local/docker/nginx
+docker-compose up -d
+
+#访问node2
+192.168.1.71:80
+192.168.1.71:8080
+
+#停止
+docker-compose down
 ```
 
