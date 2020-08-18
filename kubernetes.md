@@ -2,6 +2,8 @@
 
 Kubernetes中文文档https://kubernetes.io/zh/docs/home/
 
+帮助文档https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/
+
 三大指标：高可用、高性能、高并发
 
 高性能
@@ -28,6 +30,28 @@ Kubernetes中文文档https://kubernetes.io/zh/docs/home/
 - Base理论
 - Kubernetes一定简历在容器引擎之上
 - 服务要更新，金丝雀发布，滚动更新，版本回滚
+
+
+
+kubernetes里的核心概念
+
+pod
+
+development
+
+service
+
+volumes
+
+pv
+
+pvc
+
+ingress
+
+cni
+
+configmap
 
 
 
@@ -804,10 +828,9 @@ http {
             index index.html index.htm;
         }
     }
-
     server {
         listen       8080;
-        server_name  192.168.1.71
+        server_name  192.168.1.71;
         location  / {
            root /usr/share/nginx/html/html8080;
            index index.html index.htm;
@@ -839,5 +862,442 @@ docker-compose up -d
 
 #停止
 docker-compose down
+
+#如果容器无法启动则查看日志
+docker-compose logs nginx
 ```
+
+
+
+## 5. Nginx反向代理
+
+### 5.1 什么是代理服务器
+
+客户机在发送请求时，不会直接发送给目的主机，而是先发给代理服务器，代理服务器接受客户机请求之后，再向主机发出，并接受目的主机返回的数据，存放在代理服务器的硬盘上，再发送给客户机。
+
+
+
+### 5.2 为什么要使用代理服务器
+
+- **提高访问速度：**由于目标主机返回的数据会存放在代理服务器的硬盘中，因此下一次客户再访问相同的站点数据时，会直接从代理服务器的硬盘中读取，起到了缓存作用，尤其对于热门站点能明显提高请求速度。
+- **防火墙作用：**由于所有客户机请求都必须通过代理服务器访问远程节点，因此可在代理服务器上设限，过滤某些不安全信息。
+- **通过代理服务器访问不能访问的站点：**互联网上有很多开放的代理服务器，客户在访问受限时，可通过不受限的代理服务器访问目标站点，通俗说，我们使用的翻墙浏览器就是利用了代理服务器，虽然不能出国，但也能直接访问外网。
+
+
+
+### 5.3 什么是正向代理
+
+本机安装了代理软件，通过这个软件去到了目标服务器。
+
+
+
+### 5.4 什么是反向代理
+
+反向代理的服务器架设在服务端，通过缓冲经常被请求的 页面来缓解服务器的工作量，将客户机请求转发给内部网络上的目标服务器，并将从服务器上得到的结果返回给Internet上请求连接的客户端，此时代理服务器与目标主机一起对外表现为一个服务器。
+
+
+
+
+
+```
+#在node2上部署一个tomcat
+cd /usr/local/docker/tomcat
+vi docker-compose.yml
+-----------------------------------------------------------------
+version: '3.1'
+serices:
+  tomcat1:
+    image: tomcat
+    container_name: tomcat1
+    ports:
+      - 8081:8080
+  tomcat2:
+    image: tomcat
+    container_name: tomcat2
+    ports:
+      - 8082:8080
+
+-----------------------------------------------------------------
+docker-compose up -d
+```
+
+
+
+## 6.Nginx负载均衡
+
+​		负载均衡简历在现有网络结构之上，它提供了一种廉价有效透明的方法扩展网络设备和服务器的带宽、增加吞吐量、加强网络数据处理能力、提高网络的灵活性和可用性。负载均衡，英文名成为Load Balance，其意思是分摊到多个操作单元上进行执行。
+
+### 6.1Nginx实现负载均衡
+
+- Nginx作为负载均衡服务器，用户请求先达到Nginx，再由Nginx根据负载配置将请求转发至Tomcat服务器
+- Nginx负载均衡服务器：192.168.1.71:80
+- Tomcat1服务器：192.168.1.71:8081
+- Tomcat2服务器：192.168.1.71:8082
+- 修改/usr/local/docker/nginx/conf目录下的nginx.conf配置文件：
+
+```json
+user nginx;
+worker_processes  1;
+
+events {
+    use epoll;
+    worker_connections  1024;
+}
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;  
+    sendfile on;
+    keepalive_timeout 65;
+    client_header_buffer_size    2k;
+    
+    upstream mypp1 {
+        server 192.168.1.71:8081 weight=10;
+        server 192.168.1.71:8082 weight=10;
+    }
+    server {
+        listen       80;
+        server_name  192.168.1.71;
+        location  / {
+            proxy_pass http://myapp1;
+            index index.jsp index.html index.htm;
+        } 
+    }
+}
+
+
+
+```
+
+
+
+Nginx Ingress Controller
+
+帮助文档https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/
+
+将入口统一，不再通过LoadBalance等方式将端口暴露出来，而是使用Ingress提供的反向代理负载均衡功能作为我们唯一的入口。
+
+> **注意**：下面包含资源配置的步骤都是自行创建YAML配置文件，通过kubectl create -f <YAML> 或 kubectl apply -f <YAML>部署，kubectl delete -f <YAML>删除
+
+
+
+安装Ingress
+
+Ingress Controller有许多种，我们选择最熟悉的Nginx来处理请求，其它可以参考官方文档
+
+- 下载Nginx Ingress Controller配置文件
+
+```shell
+#在master上操作
+cd /usr/local/kubernetes
+mkdir ingress
+cd ingress
+#下载配置文件
+wget https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v0.34.1/deploy/static/provider/cloud/deploy.yaml
+#部署
+kubectl apply - f deploy.yaml
+#验证是否安装成功
+kubectl get pods -n ingress-nginx
+
+#如果地址无法解析
+访问https://site.ip138.com/raw.Githubusercontent.com/
+输入raw.githubusercontent.com查询IP
+vi /etc/hosts
+```
+
+
+
+## 7. Kubernetes数据卷
+
+​		在Docker中就有数据卷的概念，当删除容器时，数据也会一起被删除，**想要数据持久化就必须把主机上的目录挂载到docker中去**。在k8s中，数据卷是通过Pod实现持久化的，如果Pod删除，数据卷会一起删除，k8s的数据卷是docker数据卷的扩展，k8s适配各种存储系统，包括本地存储EmptyDir，HostPath，网络存储（NFS，GlusterFS，PV/PVC）等。
+
+​		以部署mysql8为例，采用**NFS+PV/PVC**网络存储方案实现kubernetes数据持久化。
+
+### 7.1 NFS
+
+NFS是Network File System，网络文件系统，NFS是FreeBSD中支持的文件系统中的一种，=。NFS基于RPC（Remote Process Call）远程过程调用实现，其允许一个系统在网络上与他人共享目录和文件。通过使用NFS，用户和程序就可以像访问本地文件一样访问远端系统上的文件。NFS是一个非常稳定的，可移植的网络文件系统。具备可扩展和高性能等特性，达到了企业级标准。由于网络速度的增加和延迟的降低，NFS系统一直是通过网络提供文件系统服务的有竞争力的选择。
+
+### 7.2 NFS原理
+
+​		NFS使用RPC进行实现，RPC使得客户端可以调用服务端的函数。同时，由于VFS的存在，客户端可以向使用其它普通文件系统一样使用NFS系统。经由操作系统的内核，将NFS文件系统的调用请求通过TCP/IP发送至服务端的NFS服务，NFS服务器执行相关操作，并将结果返回给客户端。
+
+![avatar](.\picture\NFS.png)
+
+### 7.3 NFS服务主要进程
+
+- rpc.nfsd：最主要的nfs进程，管理客户端是否可登录
+- rpc.mountd：挂载和卸载nfs文件系统，包括权限管理
+- rpc.lockd：非必要，管理文件锁，避免同时写出错
+- rpc.statd：非必要，检查文件一致性，可修复文件
+
+
+
+### 7.4 NFS关键工具
+
+- 主要配置文件：`/etc/exports`
+- NFS文件系统维护命令：`/usr/bin/exportfs`
+- 共享资源的日志文件：`/var/lib/nfs/*tab`
+- 客户端查询共享资源命令：`/usr/sbin/showmount`
+- 端口配置：`/etc/sysconfig/nfs`
+
+
+
+### 7.5 NFS服务端配置
+
+​		在NFS服务器端的主要配置文件为`/etc/exports`时，通过此配置文件可以设置共享文件目录。每条配置记录由NFS共享目录、NFS客户端地址和参数这三部分组成，格式如下：
+
+```
+[NFS 共享目录] [NFS 客户端地址1 (参数1, 参数2, 参数 3......)] [客户端地址2 (参数1, 参数2, 参数 3......)]
+```
+
+- NFS共享目录：服务器上共享出去的文件目录
+- NFS客户端地址：允许其访问的NFS服务器的客户端地址，可以使客户端IP地址，也乐意是一个网段（192.168.140.0/24）
+- 访问参数：括号中都逗号分隔项，主要是一些权限选项
+
+
+
+### 7.6 访问权限参数
+
+| 序号 | 选项 | 描述                                   |
+| ---- | ---- | -------------------------------------- |
+| 1    | ro   | 客户端对于共享文件目录为只读权限。默认 |
+| 2    | rw   | 客户端对于共享文件目录具有读写权限     |
+
+
+
+### 7.7 用户映射参数
+
+| 序号 | 选项           | 描述                                                         |
+| ---- | -------------- | ------------------------------------------------------------ |
+| 1    | root_squash    | 使客户端使用root账户访问时，服务器映射为服务器本地的匿名账号 |
+| 2    | no_root_squash | 客户端连接服务端时如果使用的是root，那么也拥有服务端分享的目录的root权限 |
+| 3    | all_squash     | 将所有客户端用户请求映射到匿名用户或用户组（nfsnobody）      |
+| 4    | no_all_squash  | 与上相反，默认                                               |
+| 5    | anonuid=xxx    | 将远程访问的所有用户都映射为匿名用户，并指定该用户为本地用户（UID=xxx） |
+| 6    | anongid=xxx    | 将远程访问的所有用户组都映射为匿名用户组账户，并指定该匿名用户组账户为本地用户组账户（GUI=xxx            ） |
+
+### 7.8 安装NFS服务端
+
+
+
+```shell
+#创建一个目录作为共享文件夹
+mkdir -p /usr/local/kubernetes/volumes
+
+#给目录增加读写权限
+chmod a+rw /usr/local/kubernetes/volumes
+
+#安装NFS服务端
+apt-get update
+apt-get install -y nfs-kernel-server
+
+#配置NFS服务目录，向客户端开放，打开文件
+vi /etc/exports
+
+#在尾部增加一行，内容如下
+/usr/local/kubernetes/volumes *(rw,sync,no_subtree_check,no_root_squash)
+#/usr/local/kubernetes/volumes:作为服务目录向客户端开放
+#*:表示任何IP都可以访问
+#rw:读写权限
+#sync:同步权限
+#no_subtree_check:表示如果输出目录是一个子系统，NFS服务器不检查其目录的权限
+#no_root_squash:客户端连接服务端时如果使用的是root，那么也拥有对服务端分享目录的root'权限
+
+#重启服务，使配置生效
+/etc/init.d/nfs-kernel-server restart
+```
+
+### 7.9 安装NFS客户端
+
+```shell
+#安装客户端的目的是 验证是否可以上传文件到服务端，安装命令如下
+apt-get install -y nfs-common
+
+#创建NFS客户端挂载目录
+mkdir -p /usr/local/kubernetes/volumes-mount
+
+#将NFS服务器的/usr/local/kubernetes/volumes目录挂载到NFS客户端的/usr/local/kubernetes/volumes-mount目录
+mount 服务端IP:/usr/local/kubernetes/volumes /usr/local/kubernetes/volumes-mount
+
+#使用df命令查看挂载信息
+df
+```
+
+### 7.10 使用数据卷
+
+​		存储管理与计算管理是两个不同问题。Persistent Volume子系统，对存储的供应和使用做了抽象，以API形式提供给管理员和用户使用，要完成这一任务，我们引入两个新的API资源，**Persistent Volume（持久卷）**和**Persistent Volume Claim（持久卷消费者）**。
+
+​		Persistent Volume（PV）是集群之中一块网络存储。跟Node一样，也是集群资源。PV跟Volume（卷）类似，不过会有独立于Pod的生命周期，这一API对象包括了存储的实现细节，例如：NFS、iSCSI或者其他的云提供商的存储系统。Persistent Volume Claim（PVC）是用户的一个请求。跟Pod类似，Pod消费Node的资源，PVC消费PV的资源。Pod能够申请特定的资源（CPU和内存）；Claim能够请求特定的尺寸和访问模式（例如可以加载一个读写，以及多个只读实例）。
+
+### 7.11 PV与PVC
+
+PV是集群资源。PVC是对这一资源的请求，也是对资源的所有权的检验。PV和PVC的互动遵循如下的生命周期。
+
+- **供应：**集群管理员会创建一系列点PV，这些PV包含了为集群用户提供的真是存储资源，它可以利用Kubernetes API来创建。
+- **绑定：**用户创建一个包含了容量和访问模式的持久卷申请。Master会监听OVC产生，并尝试根据请求内容查找匹配的PV，并把PV和PVC进行绑定。用户能够获取满足需要的资源，并且在使用过程中可能超出请求数量。如果找不到合适的卷，这一申请就会持续处于非绑定状态，一直到出现合适的PV。例如一个集群准备了很多的50G持久卷，（虽然总量足够）也是无法响应100G的申请的，除非把100G的PV加入集群。
+
+- **使用：**Pod把申请作为卷来使用。集群    会通过PVC查询绑定的PV，并mount给Pod。对于支持多种访问方式的卷，用户在使用PVC作为作为卷的时候，可以指定需要的访问方式。一旦用户拥有了一个已经绑定的PVC，被绑定的PV就该归该用户所有了。用户的Pods能够通过在Pod的卷中包含的PVC来访问他们占有的PV。
+
+- **释放：**当用户完成对卷的使用时，就可以利用API删除PVC对象了，而且他还可以重新申请。删除PVC后，对应的卷被视为“被释放”，但是这是还不能给其他的PVC使用。之前的PVC数据还保存在卷中，要根据策略进行后续处理。
+
+- **回收：**PV的回收策略向集群阐述了在PVC释放卷的时候，应该如何进行后续工作。目前可以采用三种策略，保留，回收或者删除。保留策略允许重新申请这一资源。在持久卷能够支持的情况下，删除策略会同时删除持久卷以及AWS EBS/GCE PD或者Cinder卷中的存储内容。如果插件能够支持，回收策略会执行基础的删除操作（rm -rf /thevolume/*）
+
+
+
+### 7.12 定义PV
+
+持久卷是以插件方式实现的，目前支持的插件如下：
+
+- GCEPeristenDisk
+- AWSElasticBlockStore
+- NFS（目前采用）
+- iSCSI
+- RBD（Ceph Block Device）
+- Glusterfs
+- HostPath（单节点测试使用）
+- 本地持久卷
+
+**YAML配置**
+
+创建一个名为nfs-pv-mysql.yml
+
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv-mysql
+spec:
+  # 设置容量
+  capacity:
+    storage: 5Gi
+  # 访问模式
+  accessModes:
+    # 该卷能够以读写模式被多个节点同时加载
+    - ReadWriteMany
+  # 回收策略，这里是基础删除 'rm -rf/thevolume'
+  persistentVolumeReclaimPolicy: Recycle
+  nfs:
+    # NFS服务端配置的路径
+    path: "/usr/local/kubernetes/volumes"
+    # NFS服务端地址
+    server: 192.168.1.71
+    readOnly: false
+```
+
+```shell
+# 部署
+kubectl create -f nfs-pv-mysql.yml
+# 删除
+kubectl delete -f nfs-pv-mysql.yml
+# 查看
+kubectl get pv
+```
+
+**配置说明**
+
+**Capacity**（容量）
+
+一般来说，PV会指定容量，这里需要使用PV的capcity属性。目前存储大小是唯一一个能够被申请的指标，今后会加入更多属性，例如IOPS，吞吐能力等。
+
+**accessModes**（访问模式，一个卷只加载一种访问模式）
+
+ReadWriteOnce（RWO）：该卷能够以读写模式被加载到一个节点上
+
+ReadWriteMany（ROX）：该卷能够以读写模式被多个节点同时加载
+
+ReadOnlyMany（RWX）：改卷能以只读模式加载到多个节点上
+
+
+
+### 7.13 定义PVC
+
+创建一个名为nfs-pvc-mysql-myshop.yml配置文件
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pv-mysql-myshop
+spec:
+  accessModes:
+  # 需要使用和pv 一致的访问模式
+  - ReadWriteMany
+  # 按需分配资源
+  resources:
+     requests:
+       storage: 1Gi
+```
+
+```shell
+# 部署
+kubectl create -f nfs-pv-mysql-myshop.yml
+# 删除
+kubectl delete -f nfs-pv-mysql-myshop.yml
+# 查看
+kubectl get pvc
+```
+
+
+
+### 7.14 部署MySQL8
+
+在master中执行
+
+注意：要确保每台Node都安装了NFS客户端，apt-get install -y nfs-common
+
+```yml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: mysql-myshop
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: mysql-myshop
+    spec:
+      containers:
+        - name: mysql-myshop
+          image: mysql:8.0.16
+          # 只有镜像不存在时，才会进行镜像拉取
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3306
+          # 同Docker配置中的environment
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "123456"
+          #容器中的挂载目录
+          volumeMounts:
+            - name: nfs-vol-myshop
+              mountPath: /var/lib/mysql
+      volumes:
+        # 挂载到数据卷
+        - name: nfs-vol-myshop
+          persistentVolumeClaim:
+            claimName: nfs-pvc-mysql-myshop
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-myshop
+spec:
+  ports:
+    - port: 3306
+      targetPort: 3306
+  type: LoadBalancer
+  selector:
+    name: mysql-myshop
+```
+
+```
+kubectl apply -f mysql.yml
+kubectl get service
+kubectl get deployment
+```
+
+
+
+
 
