@@ -1299,5 +1299,11 @@ kubectl get deployment
 
 
 
-
-
+```
+#kubernetes常用命令
+kubectl get pod/service/deployment/ingress/pv/pvc/cm
+kubectl apply -f xxx.yml
+kubectl delete -f xxx.yml
+kubectl describe pod/service/deployment/ingress/pv/pvc/cm
+watch kubectl describe pod/service/deployment/ingress/pv/pvc/cm(监控，每隔几秒刷新一次)
+```
